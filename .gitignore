@@ -7,7 +7,7 @@
 *.log
 /logs/
 
-.venv
+.venv/
 .env
 .env.local
 .env.*.local
