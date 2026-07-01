@@ -1,0 +1,17 @@
+
+/data/
+
+
+
+
+*.log
+/logs/
+
+.venv
+.env
+.env.local
+.env.*.local
+
+
+.devcontainer/
+
