@@ -7,7 +7,7 @@
 *.log
 /logs/
 
-.venv/
+./load_balancer/.venv
 .env
 .env.local
 .env.*.local
