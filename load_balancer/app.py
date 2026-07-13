@@ -75,7 +75,7 @@ def spawn_server(name=None):
 
         server_id_counter[0] += 1
         servers[name] = sid
-        chmap.add_server(sid, name)
+        chmap.add_server(sid)  # FIX: new API takes only server_id
         return name, None
 
 def remove_server(name, allow_missing_container=False):
@@ -88,7 +88,9 @@ def remove_server(name, allow_missing_container=False):
             detail = output if output else "docker stop/rm failed"
             return False, f"<Error> Failed to remove server '{name}': {detail}"
 
-        chmap.remove_server(name)
+        sid = servers.get(name)  # FIX: look up server_id before removing from ring
+        if sid is not None:
+            chmap.remove_server(sid)
         servers.pop(name, None)
         return True, None
 
@@ -189,7 +191,8 @@ def rm():
 def route_request(path):
     rid = random.randint(100000, 999999)
     with lock:
-        name = chmap.get_server(rid)
+        sid = chmap.get_server(rid)  # FIX: this now returns a server_id, not a hostname
+        name = next((n for n, s in servers.items() if s == sid), None)
     if name is None:
         return jsonify({"message": "<Error> No servers available", "status": "failure"}), 400
 
@@ -220,3 +223,4 @@ if __name__ == "__main__":
     t = threading.Thread(target=heartbeat_monitor, daemon=True)
     t.start()
     app.run(host="0.0.0.0", port=5000)
+
