@@ -10,10 +10,16 @@ def default_Phi(server_id: int, replica_id: int, num_slots: int) -> int:
     """Hash function for mapping a virtual server replica onto the ring."""
     return (server_id ** 2 + replica_id ** 2 + 2 * replica_id + 25) % num_slots
 
+def alt_H(request_id: int, num_slots: int) -> int:
+    return (request_id * 2654435761) % num_slots
+
+
+def alt_Phi(server_id: int, replica_id: int, num_slots: int) -> int:
+    return (server_id * 173 + replica_id * 41 + 7) % num_slots
 
 class ConsistentHashMap:
     def __init__(self, num_slots: int = 512, num_virtual: int = None,
-                 H=default_H, Phi=default_Phi):
+                 H=alt_H, Phi=alt_Phi):
         self.num_slots = num_slots
         # K = log2(num_slots)
         self.num_virtual = num_virtual or int(math.log2(num_slots))
