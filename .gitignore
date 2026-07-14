@@ -1,7 +1,9 @@
 
 /data/
 
-
+.venv/
+__pycache__/
+*.swp
 
 
 *.log
