@@ -10,7 +10,8 @@ from consistent_hash import ConsistentHashMap
 
 app = Flask(__name__)
 chmap = ConsistentHashMap()
-servers = {}       # name -> server_id
+# In-memory control plane state: container name -> stable server_id in the hash ring.
+servers = {}
 server_id_counter = [1]
 lock = threading.Lock()
 
@@ -25,6 +26,7 @@ def run_cmd(cmd):
 
 
 def parse_scale_payload(data, action):
+    # Shared validator for /add and /rm payloads.
     if not isinstance(data, dict):
         return None, None, "<Error> Invalid JSON payload"
 
@@ -52,6 +54,7 @@ def random_name():
     return "Server_" + "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
 
 def spawn_server(name=None):
+    # Starts one backend container, then registers it in local state + hash ring.
     with lock:
         sid = server_id_counter[0]
         if name is None:
@@ -79,6 +82,7 @@ def spawn_server(name=None):
         return name, None
 
 def remove_server(name, allow_missing_container=False):
+    # Removes backend container and unregisters it from the hash ring.
     with lock:
         if name not in servers:
             return False, f"<Error> Hostname '{name}' does not exist"
@@ -94,7 +98,7 @@ def remove_server(name, allow_missing_container=False):
         servers.pop(name, None)
         return True, None
 
-# Heartbeat monitor
+# Background health checker: replace dead replicas automatically.
 def heartbeat_monitor():
     while True:
         time.sleep(3)
@@ -120,12 +124,14 @@ def heartbeat_monitor():
 
 @app.route("/rep", methods=["GET"])
 def rep():
+    # Returns the current replica set known to the load balancer.
     with lock:
         return jsonify({"message": {"N": len(servers), "replicas": list(servers.keys())},
                         "status": "successful"}), 200
 
 @app.route("/add", methods=["POST"])
 def add():
+    # Adds n replicas; optional hostnames can pin exact container names.
     data = request.get_json()
     n, hostnames, err = parse_scale_payload(data, "add")
     if err:
@@ -154,6 +160,7 @@ def add():
 
 @app.route("/rm", methods=["DELETE"])
 def rm():
+    # Removes requested replicas; if fewer names are provided than n, picks random extras.
     data = request.get_json()
     n, hostnames, err = parse_scale_payload(data, "rm")
     if err:
@@ -189,6 +196,7 @@ def rm():
 
 @app.route("/<path:path>", methods=["GET"])
 def route_request(path):
+    # Proxies any GET path to one backend selected via consistent hashing.
     rid = random.randint(100000, 999999)
     with lock:
         sid = chmap.get_server(rid)  # FIX: this now returns a server_id, not a hostname
